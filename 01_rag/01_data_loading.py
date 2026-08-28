@@ -1,5 +1,3 @@
-
-
 import pymupdf  # PyMuPDF
 import docx
 from pathlib import Path
@@ -31,7 +29,7 @@ def extract_text_from_docx(docx_path:Path)->str:
 
 
 # ------------------------------------------------------------- TODO 2
-def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
+def chunk_text(text: str, chunk_size: int = 800, overlap: int = 50) -> list[str]:
     """
     text:       tek parça uzun metin
     chunk_size: her parçanın karakter cinsinden hedef uzunluğu

@@ -28,17 +28,38 @@ def top_k_answ(scores:np.ndarray,k:int)->np.ndarray:
     return top_k_indices
 
 def build_index() -> tuple[np.ndarray,list[str],list[dict]]:
-    if INDEX_PATH.exists():
-        print(f"Saved index found:{INDEX_PATH}")
-        data = np.load(INDEX_PATH,allow_pickle=True) #Object array gibi kaydedilenleri yüklemeye izin verir
-        return data["embeddings"],list(data["chunks"]),list(data["metadata"])
-    
-    print("No index found building index...")
     pdf_files = list(load_data.DATA_DIR.rglob("*.pdf"))
     docx_files = list(load_data.DATA_DIR.rglob("*.docx")) #rglob recursice method ile alt klasörlere girmeyi sağlar
     all_files = pdf_files + docx_files
 
-    chunks,metadata = [],[]
+    if INDEX_PATH.exists():
+        print(f"Saved index found:{INDEX_PATH}")
+        data = np.load(INDEX_PATH,allow_pickle=True) #Object array gibi kaydedilenleri yüklemeye izin verir
+        old_embeddings = data["embeddings"]
+        old_chunks = list(data["chunks"])
+        old_metadata = list(data["metadata"]) 
+    else:
+        print("No embeddings found,fresh start")
+        old_embeddings = np.empty((0,384))
+        old_chunks = []
+        old_metadata = []
+
+    # Hangi dosyalar zaten embeddiglenmiş
+    processed_sources = set()
+    for m in old_metadata:
+        processed_sources.add(m["source"])
+
+    # Hangi dosyalar yeni
+    new_files = [f for f in all_files if f.name not in processed_sources]
+
+    print(f"{len(new_files)} new file found from {len(all_files)} files")
+
+    if not new_files:
+        print("No new files.Using old indices")
+        return old_embeddings,old_chunks,old_metadata
+
+
+    new_chunks,new_metadata = [],[]
     for file_path in all_files:
         topic = file_path.parent.name
         if file_path.suffix == ".pdf":
@@ -47,12 +68,18 @@ def build_index() -> tuple[np.ndarray,list[str],list[dict]]:
             text = load_data.extract_text_from_docx(file_path)
 
         file_chunks = load_data.chunk_text(text)
-        chunks.extend(file_chunks)
-        metadata.extend({"topic":topic,"source":file_path.name} for _ in file_chunks)
+        new_chunks.extend(file_chunks)
+        new_metadata.extend({"topic":topic,"source":file_path.name} for _ in file_chunks)
 
-    print(f"{len(chunks)} chunk is embedding this take some time...")
+    print(f"{len(new_chunks)} chunk is embedding this take some time...")
     model = SentenceTransformer("intfloat/multilingual-e5-small")
-    embeddings = model.encode(["passage: " + c for c in chunks],show_progress_bar=True)
+    new_embeddings = model.encode(["passage: " + c for c in new_chunks],show_progress_bar=True)
+
+    #Eskiyle yeniyi birleştirme
+    embeddings = np.vstack([old_embeddings,new_embeddings])
+    chunks = new_chunks + old_chunks
+    metadata = new_metadata + old_metadata
+
 
     np.savez(
         INDEX_PATH,embeddings=embeddings,chunks=np.array(chunks,dtype=object),metadata=np.array(metadata,dtype=object)
