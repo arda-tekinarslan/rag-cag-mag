@@ -73,7 +73,7 @@ def build_index() -> tuple[np.ndarray,list[str],list[dict]]:
 
     print(f"{len(new_chunks)} chunk is embedding this take some time...")
     model = SentenceTransformer("intfloat/multilingual-e5-small")
-    new_embeddings = model.encode(["passage: " + c for c in new_chunks],show_progress_bar=True)
+    new_embeddings = model.encode(["passage: " + c for c in new_chunks],show_progress_bar=False)
 
     #Eskiyle yeniyi birleştirme
     embeddings = np.vstack([old_embeddings,new_embeddings])

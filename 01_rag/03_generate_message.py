@@ -4,11 +4,18 @@
 """
 
 import ollama
+from sentence_transformers import CrossEncoder
 import numpy as np
 from importlib import import_module
+from print_utils import print_question,print_sources,print_answer
+import os
+os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+import warnings
+warnings.filterwarnings("ignore")
 
-build_mode = import_module("02_build")
-MODEL_NAME = "qwen2.5:3b-instruct"
+build_mode = import_module("hybrid_rerank")
+build_mode2 = import_module("02_build")
+MODEL_NAME = "qwen2.5:7b-instruct-q3_K_M"
 
 def build_prompt(question:str,retrieved_chunks:list[str])->str: #Retrieveed chunks top_k den gelen chunklar scorea göre
     numbered_chunks = []
@@ -33,51 +40,49 @@ def build_prompt(question:str,retrieved_chunks:list[str])->str: #Retrieveed chun
         """
     return prompt
 
-def retrieve(question:str,embeddings,chunks,metadata,model,k:int=3):
-    q_vec = model.encode("query: " + question)
-    scores = build_mode.cosine_sim(q_vec,embeddings)
-    top_idx = build_mode.top_k_answ(scores,k)
-    return [chunks[i] for i in top_idx],[metadata[i] for i in top_idx],[scores[i] for i in top_idx]
+def retrieve(question: str, embeddings, chunks, metadata, model, bm25, cross_encoder, k: int = 3):
+    candidates = build_mode.hybrid_retrieve(question, embeddings, chunks, metadata, model, bm25, n_candidates=10)
+    final_idx, final_scores = build_mode.rerank(question, candidates, chunks, cross_encoder, top_n=k)
+    return [chunks[i] for i in final_idx], [metadata[i] for i in final_idx], final_scores
 
-
-def generate(prompt:str)->str:
+def generate(prompt: str) -> str:
     response = ollama.chat(
         model=MODEL_NAME,
-        messages=[{"role":"user","content":prompt}]
+        messages=[{"role": "user", "content": prompt}],
+        options={"temperature": 0},
     )
     return response["message"]["content"]
 
-def ask(question:str,embeddings,chunks,metadata,embed_model):
-    retrieved_chunks,retrieved_metadata,scores = retrieve(question,embeddings,chunks,metadata,embed_model)
+def ask(question, embeddings, chunks, metadata, embed_model, bm25, cross_encoder):
+    retrieved_chunks, retrieved_meta, scores = retrieve(question, embeddings, chunks, metadata, embed_model, bm25, cross_encoder)
 
-    print(f"\n{'='*60}")
-    print(f"QUESTION: {question}")
-    print(f"{'='*60}")
-    print("Resources:")
+    print_question(question)
+    print_sources(retrieved_meta, scores)
+    print("\n--- TAM CHUNK METNİ (debug) ---")
+    print(retrieved_chunks[0])
+    print("--- son ---\n")
 
-    for i,(metadata,score,chunk) in enumerate(zip(retrieved_metadata,scores,retrieved_chunks),1):
-        print(f"  [{i}] ({score:.3f}) {metadata['topic']} / {metadata['source']}")
-        print(f"      metin: {chunk[:200]}")
+    prompt = build_prompt(question, retrieved_chunks)
+    cevap = generate(prompt)
 
-    prompt = build_prompt(question,retrieved_chunks)
-    response = generate(prompt)
-
-    print(f"\nRESPONSE:\n{response}")
-    return response
+    print_answer(cevap)
+    return cevap
 
 def main():
     from sentence_transformers import SentenceTransformer
 
-    embeddings,chunks,metadata = build_mode.build_index()
+    embeddings, chunks, metadata = build_mode2.build_index()
     embed_model = SentenceTransformer("intfloat/multilingual-e5-small")
+    bm25 = build_mode.build_bm25_index(chunks)
+    cross_encoder = CrossEncoder(build_mode.RERANK_MODEL)
 
-    test_q = [
-        "Reflexivo grammer kuralı nedir",
-        "Juliete Venegas şarkısının ismi nedir",
-        "Salatalık ispanyolcada ne demek"
-        ]
-    for q in test_q:
-        ask(q,embeddings,chunks,metadata,embed_model)
+    test_sorular = [
+    "Reflexivo grammer kuralı nedir",
+    "Julieta Venegas'ın şarkısının ismi ne",
+    "Salatalık İspanyolcada ne demek",
+]
+    for soru in test_sorular:
+        ask(soru, embeddings, chunks, metadata, embed_model, bm25, cross_encoder)
 
 if __name__ == "__main__":
     main()
