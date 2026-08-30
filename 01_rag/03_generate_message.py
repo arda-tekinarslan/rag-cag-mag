@@ -58,10 +58,6 @@ def ask(question, embeddings, chunks, metadata, embed_model, bm25, cross_encoder
 
     print_question(question)
     print_sources(retrieved_meta, scores)
-    print("\n--- TAM CHUNK METNİ (debug) ---")
-    print(retrieved_chunks[0])
-    print("--- son ---\n")
-
     prompt = build_prompt(question, retrieved_chunks)
     cevap = generate(prompt)
 
