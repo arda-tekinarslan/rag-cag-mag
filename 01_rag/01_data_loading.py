@@ -5,7 +5,7 @@ from pathlib import Path
 DATA_DIR = Path(__file__).parent.parent / "data" / "spanish_pdf"
 
 
-# ------------------------------------------------------------- TODO 1
+
 def extract_text_from_pdf(pdf_path: Path) -> str:
     """
     pdf_path: bir .pdf dosyasının yolu
@@ -18,24 +18,23 @@ def extract_text_from_pdf(pdf_path: Path) -> str:
     doc.close()
     return "\n\n".join(pages)
 
-def extract_text_from_docx(docx_path:Path)->str:
+def extract_text_from_docx(docx_path: Path) -> str:
     doc = docx.Document(docx_path)
-    pages = []
-    for parag in doc.paragraphs:
-        text = parag.text
-        pages.append(text)
-    return "\n".join(pages)
+    parts = [p.text for p in doc.paragraphs]
+    for table in doc.tables:
+        for row in table.rows:
+            cells = [c.text.strip() for c in row.cells]
+            parts.append(" | ".join(cells))
+    return "\n".join(parts)
 
 
 
-# ------------------------------------------------------------- TODO 2
+
 def chunk_text(text: str, chunk_size: int = 800, overlap: int = 50) -> list[str]:
     """
     text:       tek parça uzun metin
     chunk_size: her parçanın karakter cinsinden hedef uzunluğu
     overlap:    ardışık parçalar arasında kaç karakter tekrar etsin
-
-    dönüş: string listesi, her biri ~chunk_size karakterlik bir parça
     """
     chunks = []
     start = 0
@@ -63,7 +62,7 @@ def main():
     _test()
  
     if not DATA_DIR.exists():
-        print(f"UYARI: {DATA_DIR} bulunamadı. PDF'lerini oraya koy.")
+        print(f"UYARI: {DATA_DIR} bulunamadı")
         return
  
     # rglob: alt klasörlere de iner (glob sadece üst seviyeye bakar)

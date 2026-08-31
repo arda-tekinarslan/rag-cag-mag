@@ -2,16 +2,14 @@
     Retrievel + LLM = RAG
 
 """
-
+import os
+os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1" #Anonim bilgi gönderimini iptal ediyor
 import ollama
 from sentence_transformers import CrossEncoder
 import numpy as np
 from importlib import import_module
 from print_utils import print_question,print_sources,print_answer
-import os
-os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
-import warnings
-warnings.filterwarnings("ignore")
+
 
 build_mode = import_module("hybrid_rerank")
 build_mode2 = import_module("02_build")
@@ -20,8 +18,8 @@ MODEL_NAME = "qwen2.5:7b-instruct-q3_K_M"
 def build_prompt(question:str,retrieved_chunks:list[str])->str: #Retrieveed chunks top_k den gelen chunklar scorea göre
     numbered_chunks = []
     for i,chunk in enumerate(retrieved_chunks,1):
-        numbered_chunks.append(f"[{i}]" + chunk)
-    numbered_contex = "\n\n".join(numbered_chunks)
+        numbered_chunks.append(f"[{i}]" + chunk) #chunkları numaralandırıyoruz
+    numbered_context = "\n\n".join(numbered_chunks)
 
     role = "Sen İspanyolca dilinde uzman bir ai öğretmenisin."
     rule = (
@@ -35,7 +33,7 @@ def build_prompt(question:str,retrieved_chunks:list[str])->str: #Retrieveed chun
     prompt = f"""
         ROLE:{role}
         RULE:{rule}
-        CONTEXT:{numbered_contex}
+        CONTEXT:{numbered_context}
         QUESTION:{question}
         """
     return prompt

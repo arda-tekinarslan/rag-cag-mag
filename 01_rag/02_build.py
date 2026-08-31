@@ -50,7 +50,8 @@ def build_index() -> tuple[np.ndarray,list[str],list[dict]]:
         processed_sources.add(m["source"])
 
     # Hangi dosyalar yeni
-    new_files = [f for f in all_files if f.name not in processed_sources]
+    new_files = [f for f in all_files
+             if str(f.relative_to(load_data.DATA_DIR)) not in processed_sources]
 
     print(f"{len(new_files)} new file found from {len(all_files)} files")
 
@@ -59,26 +60,29 @@ def build_index() -> tuple[np.ndarray,list[str],list[dict]]:
         return old_embeddings,old_chunks,old_metadata
 
 
-    new_chunks,new_metadata = [],[]
-    for file_path in all_files:
+    new_chunks, new_metadata = [], []
+    for file_path in new_files:                      # düzeltme 1
         topic = file_path.parent.name
-        if file_path.suffix == ".pdf":
+        if file_path.suffix.lower() == ".pdf":
             text = load_data.extract_text_from_pdf(file_path)
         else:
             text = load_data.extract_text_from_docx(file_path)
 
         file_chunks = load_data.chunk_text(text)
         new_chunks.extend(file_chunks)
-        new_metadata.extend({"topic":topic,"source":file_path.name} for _ in file_chunks)
+        new_metadata.extend(
+            {"topic": topic,
+             "source": str(file_path.relative_to(load_data.DATA_DIR)),  # düzeltme 2
+             "chunk_index": i}
+            for i in range(len(file_chunks))
+        )
 
-    print(f"{len(new_chunks)} chunk is embedding this take some time...")
     model = SentenceTransformer("intfloat/multilingual-e5-small")
-    new_embeddings = model.encode(["passage: " + c for c in new_chunks],show_progress_bar=False)
+    new_embeddings = model.encode(["passage: " + c for c in new_chunks])
 
-    #Eskiyle yeniyi birleştirme
-    embeddings = np.vstack([old_embeddings,new_embeddings])
-    chunks = new_chunks + old_chunks
-    metadata = new_metadata + old_metadata
+    embeddings = np.vstack([old_embeddings, new_embeddings])
+    chunks     = old_chunks + new_chunks              # düzeltme 3: sıra aynı
+    metadata   = old_metadata + new_metadata
 
 
     np.savez(
