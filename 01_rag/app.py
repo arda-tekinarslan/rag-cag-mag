@@ -1,14 +1,7 @@
 """
 İspanyolca RAG Asistanı — Streamlit web arayüzü.
-
-Kurulum:
-    pip install streamlit
-
 Çalıştırma (01_rag klasöründen):
     streamlit run app.py
-
-Not: import_module satırlarındaki isimler senin gerçek dosya adlarınla
-eşleşmeli (02_build, hybrid_rerank, 03_generate_message) — farklıysa düzelt.
 """
 
 import os
@@ -19,6 +12,7 @@ warnings.filterwarnings("ignore")
 import streamlit as st
 from importlib import import_module
 from sentence_transformers import SentenceTransformer, CrossEncoder
+query_rewrite_mod = import_module("06_query_rewrite")
 
 build_mode2 = import_module("02_build")
 hybrid_mod = import_module("hybrid_rerank")
@@ -45,13 +39,19 @@ st.caption(
 )
 
 soru = st.text_input("Sorunuzu yazın:", placeholder="Örn: Reflexivo fiiller nasıl çekimlenir?")
+use_rewriting = st.checkbox("Query rewriting kullan (daha yavaş, daha sağlam)")
 sor_button = st.button("Sor", type="primary")
 
 if sor_button and soru.strip():
     with st.spinner("Aranıyor ve cevap üretiliyor..."):
-        retrieved_chunks, retrieved_meta, scores = rag.retrieve(
-            soru, embeddings, chunks, metadata, embed_model, bm25, cross_encoder
-        )
+        if use_rewriting:
+            retrieved_chunks, retrieved_meta, scores = query_rewrite_mod.retrieve_with_rewriting(
+                soru, embeddings, chunks, metadata, embed_model, bm25, cross_encoder
+            )
+        else:
+            retrieved_chunks, retrieved_meta, scores = rag.retrieve(
+                soru, embeddings, chunks, metadata, embed_model, bm25, cross_encoder
+            )
         prompt = rag.build_prompt(soru, retrieved_chunks)
         cevap = rag.generate(prompt)
 

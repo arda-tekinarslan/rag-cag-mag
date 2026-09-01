@@ -23,12 +23,15 @@ def build_prompt(question:str,retrieved_chunks:list[str])->str: #Retrieveed chun
 
     role = "Sen İspanyolca dilinde uzman bir ai öğretmenisin."
     rule = (
-    "SADECE aşağıdaki CONTEXT içindeki bilgileri kullanarak cevap ver. "
-    "Kendi genel bilgini veya context dışındaki hiçbir bilgiyi KULLANMA. "
-    "Eğer cevap context içinde yoksa, başka hiçbir şey eklemeden sadece şunu yaz: "
-    "'Bu bilgi elimdeki dokümanlarda yok.' "
-    "Cevabını hangi chunk numarasından (örn. [1], [2]) aldığını belirt."
-)
+        "SADECE aşağıdaki CONTEXT içindeki bilgileri kullanarak cevap ver. "
+        "Kendi genel bilgini veya context dışındaki hiçbir bilgiyi KULLANMA. "
+        "Ancak, context içindeki başlık/yazar gibi YAPISAL yerleşimlerden "
+        "(örneğin bir başlığın altında yazan isim o eserin yazarı/sanatçısı olabilir) "
+        "makul çıkarımlar yapmana izin var — bunu context dışı bilgi sayma. "
+        "Eğer cevap context içinde hiç ipucu yoksa, başka hiçbir şey eklemeden sadece şunu yaz: "
+        "'Bu bilgi elimdeki dokümanlarda yok.' "
+        "Cevabını hangi chunk numarasından (örn. [1], [2]) aldığını belirt."
+        )
 
     prompt = f"""
         ROLE:{role}
@@ -47,7 +50,7 @@ def generate(prompt: str) -> str:
     response = ollama.chat(
         model=MODEL_NAME,
         messages=[{"role": "user", "content": prompt}],
-        options={"temperature": 0},
+        options={"temperature": 0.2},
     )
     return response["message"]["content"]
 

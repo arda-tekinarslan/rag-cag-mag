@@ -27,7 +27,7 @@ def reciprocal_rank_fusion(ranked_dense:list[int],ranked_bm25:list[int],k_consta
         combined_scores[idx] = combined_scores.get(idx,0) + (1 / (k_constant + rank))
 
     for rank,idx in enumerate(ranked_bm25):
-        combined_scores[idx] = combined_scores.get(idx,0) + (1 / k_constant + rank)
+        combined_scores[idx] = combined_scores.get(idx,0) + (1 / (k_constant + rank))
 
     sorted_combined = sorted(combined_scores,key=combined_scores.get,reverse=True)
     return sorted_combined
@@ -42,7 +42,7 @@ def hybrid_retrieve(question:str,embeddings,chunks,metadata,embed_model,bm25,n_c
     fused = reciprocal_rank_fusion(ranked_dense,ranked_bm25)
     return fused[:n_candidates]
 
-def rerank(question:str,candidate_indices:list[int],chunks:list[str],cross_encoder:CrossEncoder,top_n:int=3):
+def rerank(question:str,candidate_indices:list[int],chunks:list[str],cross_encoder:CrossEncoder,top_n:int=3): #iki ranked kısmından gelenleri en iyi şekilde sıralar cross encoder kullanraak
     pairs = [(question,chunks[i]) for i in candidate_indices]
     scores = cross_encoder.predict(pairs)
 
